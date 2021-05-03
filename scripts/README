@@ -1,0 +1,20 @@
+These scripts are used to manage a set of AWS instances for the workshop. The
+workflow is:
+
+ 1: (no scripts for this) start the proxy server(s) and the server for the URL
+    app.
+
+ 2: Pick a name for a group of instances. The name itself does not matter; it's
+    just a bookkeping device. Ex: "hydrogen"
+
+ 3: Run launch_instances.py to start the servers that host the notebooks.
+
+ 4: Wait a minute or two for the servers to finish initializing.
+
+ 5: Run add_hostnames.py to assign a unique hostname to each new instance.
+
+ 6: Run start_nb_servers.py to checkout the latest repo branch and start the
+    Jupyter Lab servers.
+
+ 7: Run update_proxy.py so that the proxy server(s) will send web traffic to the
+    appropriate machines.

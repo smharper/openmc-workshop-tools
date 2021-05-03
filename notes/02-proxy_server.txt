@@ -1,0 +1,121 @@
+The next step is to set up a bunch of web stuff that will make it easy for
+workshop participants to access a given notebook instance.
+
+There are several goals for this step:
+ 1) A participant should be able to reach their notebook with a simple,
+    human-readable URL (ex: notebook03.openmcworkshop.org).
+ 2) The system should use the HTTPS protocol with SSL encryption so that a
+    participant's web-browser allows them to use the site and does not raise
+    annoying warnings.
+ 3) Ideally it should be fast and easy for the workshop hosts to add or remove
+    notebook instances to the system on the day of the workshop.
+
+Using one or more proxy servers seems to be a good way of achieving these goals.
+All web traffic for the workshop domain name (e.g. openmcworkshop.org) can be
+sent to the proxy server, and then the proxy can be set up to send requests for
+a specific subdomain (e.g. notebook03.openmcworkshop.org) to a corresponding
+EC2 instance. The routing can be easily changed in real-time by updating the
+configuration files on the proxy server. (This allows the hosts to wait until
+just before the workshop to start the notebook instances, and it also allows the
+hosts to quickly add new instances if needed.) The proxy server can also perform
+"SSL termination" for the notebook instances.
+
+
+* Register a domain name
+  + Make sure to do this step well before the workshop! It may take several
+    days.
+  + There are many different companies that will sell you a domain name. For the
+    ANS Student 2021 conference, we used AWS Route 53.
+  + NOTE: Sterling Harper owns the openmcworkshop.org domain name. Feel free to
+    reach out to him if you want to use that domain name for your workshop.
+
+* Get signed SSL certificates for the workshop domain.
+  + Again, make sure to do this well before the workshop.
+  + We used AWS Certificate Manager (ACM) for the ANS Student 2021 conference.
+    However, this might not be the best option. The certificate itself is cheap,
+    but it requires you to use EC2 Nitro Enclave instances for the proxy
+    servers. The Nitro Enclave instances are not easy to set up, and they
+    require a beefy instance type like c5.2xlarge which is expensive to leave
+    running for many days when preparing for the workshop. In retrospect,
+    LetsEncrypt might be a better provider. The ACM Nitro Enclave steps are
+    described here:
+    https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-refapp.html
+  + Be sure to get a "wildcard" certificate (e.g. *.openmcworkshop.org)
+
+* Recommended: watch or read a tutorial on setting up a reverse proxy in NGINX
+  + For example: https://youtu.be/B62QSbPhh1s
+
+* Set up an EC2 instance for the NGINX proxy server
+  + The Amazon Linux 2 AMI is a good AMI for this server.
+  + Open the HTTP and HTTPS traffic in the security settings
+  + If you're using ACM, make sure you use an instance type that supports Nitro
+    Enclave.
+  + Install nginx
+    + (With the Amazon Linux AMI) amazon-linux-extras install nginx1
+  + Make sure nginx is running
+    + sudo service nginx status
+    + (If necessary) sudo service nginx start
+  + Test that nginx is live and accessible
+    + You should be able to connect at http://{public_ip_address} and see a
+      test page made by NGINX.
+
+* Direct traffic to the proxy server
+  + Reserve an Elastic IP with AWS
+  + Assign the Elastic IP to the proxy server
+  + (This way you will have one persistent IP address that you can keep when the
+    proxy server is not running, and you can easily switch it from one server to
+    another for testing purposes.)
+  + Using AWS Route 53 create a DNS record that routes traffic for your wildcard
+    domain (e.g. *.openmcworkshop.org) to the Elastic IP that you reserved.
+  + Note that it may take a few minutes for the various public DNS servers to
+    pick up this new record.
+  + Test that traffic is being routed to your reserved IP address
+    + On Linux you can use the "dig" command. Any address that matches your
+      wildcard domain (e.g. foo.openmcworkshop.org or test.openmcworkshop.org)
+      should be routed to the reserved IP.
+  + Try accessing the server via web browser (e.g. navigate to
+    http://foo.openmcworkshop.org). This should again show the NGINX test page.
+
+* Set configuration files
+  + You may need to modify the "nginx.conf" file. An example file is included
+    in the openmc-workshop-tools repo.
+  + The nginx.conf file should have the line,
+    "include /etc/nginx/default.d/*.conf". This line means that we can put
+    the .conf files that specify the workshop proxy in the /etc/nginx/default.d
+    directory.
+  + Make the /etc/nginx/default.d/templ subdirectory. This is where we will
+    store template NGINX configurations that will be included in the .conf
+    files.
+  + Add the the "loc_templ.conf" and "server_templ.conf" files (from the
+    openmc-workshop-tools repo) to the templ subdirectory
+  + Add the "main.conf" file to the conf.d directory. This file will redirect
+    HTTP requests to HTTPS. It also includes a configuration for the domain
+    name "welcome.openmcworkshop.org" that is meant to redirect to the
+    URL-provider webapp (covered later in the notes.)
+
+* Test the reverse proxy
+  + Launch an instance using the AMI set up earlier in these notes and execute
+    the "run_jupyter.sh" script on that instance to start Jupyter Lab.
+  + Add a .conf to the conf.d directory on the proxy server (the file can use
+    any prefix, e.g. example.conf) with contents that look like this (replace
+    the {jupyter_instance_ip} with the private IP address of the instance that's
+    running Jupyter Lab):
+server {
+  server_name example0.openmcworkshop.org;
+  include /etc/nginx/conf.d/templ/server_templ.conf;
+  location / {
+    proxy_pass http://{jupyter_instance_ip}:8888;
+    include /etc/nginx/conf.d/templ/loc_templ.conf;
+  }
+}
+  + sudo service nginx reload
+  + Visit the domain you used for "server_name" (e.g.
+    example0.openmcworkshop.org) in the web browser. You should see the Jupyter
+    notebook, and your browser should indicate that it is using HTTPS.
+  + Remove the test .conf file when you are finished.
+
+
+The proxy server is now ready to go. You can stop the EC2 instance that is
+running the server when it is not in use in order to save money. The IP address
+that was reserved with Elastic IPs will be persistent so you should not have to
+update the DNS records when restarting the server.

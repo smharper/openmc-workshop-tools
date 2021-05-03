@@ -1,0 +1,88 @@
+Here we will create an AMI (Amazon Machine Image) for the worker instances that
+host the Jupyter Lab servers. We can add all the necessary software and data
+that we need to this image. When the image is ready, we will be able to launch
+an arbitrary number of AWS instances that start up with all of that software and
+data ready to go.
+
+Note that any files you add or modify on this image will carry over to the
+machines that the workshop participants will use. For that reason, it may be a
+good idea to go through the entire process once or twice, testing features as
+you go; then repeat the entire process from the beginning to ensure that the
+final AMI doesn't have any scratchwork.
+
+
+* Launch an AWS EC2 instance
+  + You will need to pick an AMI to start from. We used the Ubuntu Server 20.04
+    LTS image for the 2021 ANS Student Conference.
+  + Pick an instance type. Recommended: t3a.medium.
+  + Increase the storage from the default 8 GB to something large enough for
+    nuclear data and output files. 32 GB seems good.
+
+* SSH into the instance
+
+* Install needed apt libraries
+  + sudo apt-get update
+  + sudo apt install g++ cmake libhdf5-dev python3-pip libeigen3-dev gfortran
+  + g++, cmake, and HDF5 are basic OpenMC dependencies
+  + Pip is a good Python package manager
+  + Eigen and a Fortran compiler are required for MOAB
+
+* Install needed Python libraries
+  + pip3 install numpy pandas uncertainties h5py scipy matplotlib pytest jupyterlab
+
+* Get the nuclear-data libraries
+  + Get the lastest NNDC library from the openmc/tools/ci/download-xs.sh script
+    (for the test suite).
+  + Get a good ENDF/B-VII.1 library from the OpenMC website so we can
+    demonstrate high-temperature cross sections.
+
+* (Optional) Install DAGMC
+  + Follow the steps in the openmc/tools/ci/gha-install-dagmc.sh script
+
+* Checkout the workshop and OpenMC repos
+  + git clone https://github.com/mit-crpg/openmc-workshop.git
+  + git submodule init; git submodule update
+
+* Install OpenMC
+  + cmake -H. -Bbuild -Doptimize=on -DCMAKE_PREFIX_PATH=/home/ubuntu/DAGMC -DCMAKE_INSTALL_PREFIX=/home/ubuntu/openmc-workshop/openmc/install
+  + make; make install
+  + Set the PATH, LD_LIBRARY_PATH, PYTHONPATH, and OPENMC_CROSS_SECTIONS
+    environment variables in the .bashrc file.
+
+* Configure Jupyter
+  + Note: many of these instructions come from
+    https://jupyter-server.readthedocs.io/en/latest/operators/public-server.html
+  + jupyter server --generate-config
+  + Set up a password
+    + (In a Python shell) from jupyter_server.auth import passwd; passwd()
+    + My default: mcrules + In the ~/.jupyter/jupyter_server_config.py file: set the
+      c.ServerApp.password attribute
+  + Modify the ~/.jupyter/jupyter_server_config.py file
+    + c.ServerApp.allow_origin = '*'
+    + c.ServerApp.allow_remote_access = True
+    + c.ServerApp.ip = '*'
+    + c.ServerApp.open_browser = False
+    + c.ServerApp.port = 8888
+    + c.ServerApp.trust_xheaders = True
+    + c.ConnectionFileMixin.ip = '*'
+
+* Add the run_jupyter.sh script to the home directory
+  + Make sure it is executable with chmod +x run_jupyter.sh
+  + (When you start an instance from this image, you will be able to run this
+    script to start Jupyter Lab and save the text output to a log file.)
+
+* Create the AMI
+  + Go to the AWS web console and stop the instance. (This step might be
+    unnecessary.)
+  + Create the AMI. This can be done on the console by selecting the instance
+    and going to Actions -> Image and templates -> Create image
+
+At this point, you can launch EC2 instances using this AMI, and try out a hosted
+notebook. To do so, launch an instance and make sure to open port 8888 in the
+security settings. When it has launched, get the public IP address. Then use a
+browser to connect to http://{public_ip_address}:8888
+
+Note that the Python scripts which handle the instance launching will
+automatically SSH into each machine and checkout a specified branch of the
+openmc-workshop repo. This means that you do not have to update the AMI itself
+each time you update the repo.

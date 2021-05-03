@@ -1,0 +1,27 @@
+The notebook server has been set up to use the unencrypted HTTP protocol. This
+is probably not a serious security concern since we do not ask participants to
+input any sensitive data. However, the web browser may give the user warnings
+about unencrypted traffic, and some web browsers may actually disallow it.
+
+Jupyter Lab supports SSL encryption with HTTPS, but there are complications.
+This method requires SSL certificates to be available on the notebook instances.
+The Jupyter documentation spells out how to make a "self-signed" SSL
+certificate, but a web browser connecting to the notebook will display a big
+scary warning. As of writing, it's also difficult to tell the Chrome browser to
+ignore the warning. (You have to click a blank spot in the page and type
+"thisisunsafe".)
+
+You could put real SSL certificates (signed by a recognized certificate
+authority) on the instances, but this is not good practice because the
+certificates must be readable by the notebook user, and a nefarious person
+could then theoretically steal the certificate. This approach also brings
+potential complications with getting the right certificates on each machine
+because (depending on how the certificates are set up), they might only work for
+a specific hostname.
+
+Instead, it will be easier to have one (or a few) proxy servers and perform SSL
+termination on that server. The SSL certificates will live on the proxy server
+and will be inaccessible to any external people (workshop participants or
+otherwise). Traffic between a user and the proxy will be encrypted with SSL, and
+the proxy will then send plain unencrypted HTTP messages (using the AWS private
+network) to the appropriate instances.

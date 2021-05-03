@@ -1,0 +1,27 @@
+The last piece of infrastructure to prepare is a welcome website. This website
+will use a simple web app to give each participant the URL to a unique instance
+running Jupyter Lab.
+
+* Using AWS IAM, add a user with permissions to tag EC2 instances
+
+* Make an access key for the instance tagging user
+
+* Make an EC2 instance using Amazon Linux 2 AMI
+
+* amazon-linux-extras install nginx1 python3.8
+
+* Set up .aws/config and .aws/credentials files with the access key for the
+  instance tagging user
+
+* Install Boto3
+
+* Copy the "for_welcome_site" files to the instance
+
+* Assign an Elastic IP to the instance
+
+* Set a DNS record for "welcome.openmcworkshop.org" to that IP
+
+* Set an NGINX reverse proxy that directs HTTP/HTTPS traffic to
+  http://127.0.0.1:8888
+
+* Get SSL certs with LetsEncrypt

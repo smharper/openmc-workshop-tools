@@ -1,0 +1,57 @@
+The openmc-workshop-tools repo contains a set of scripts that automate the
+process of starting up Jupyter instances and configuring the proxy server.
+
+
+* Set up AWS API access on your computer
+  + Make an access key for your account.
+  + Create the file .aws/credentials in your home directory. Set the contents
+    to (replace "XXX" with your key info):
+[default]
+aws_access_key_id = XXX
+aws_secret_access_key = XXX
+
+  + Create the file .aws/config and set your default region, e.g.:
+[default]
+region = us-east-1
+
+  + Install the "boto3" Python package.
+  + Try running a simple boto3 example:
+import boto3
+ec2 = boto3.client('ec2')
+resp = ec2.describe_instances()
+print(resp)
+
+* Set the parameters in the scripts
+  + Set the "KEYPAIR_PATH" parameter (found in several of the scripts) with the
+    path to the .pem file you use to SSH into your EC2 instances.
+  + Set the "BRANCH_NAME" parameter in checkout_latest.py and
+    start_nb_servers.py to the name of the branch you are using in the
+    openmc-workshop repo.
+  + Change the "IMAGE_ID" parameter of the launch_instances.py script to the
+    id of the AMI you created that has OpenMC and Jupyter Lab installed.
+  + Create a security group on AWS that allows SSH and port 8888. Set the
+    "SECURITY_GROUP" parameter in launch_instances.py.
+  + Set the "PROXY_IPS" parameter in update_proxy.py to the Elastic IP that you
+    reserved for the proxy server. Note that this script supports a tuple of
+    IPs for multiple proxies.
+
+* Test the automated workflow
+  + python3 launch_instances.py hydrogen 5
+    + This will launch 5 EC2 instances using your AMI
+    + It will add a tag to each instance named "ws_group" and set it's value to
+      "hydrogen". This is just a bookkeeping feature and you can use any group
+      name you like (as long as it does not have spaces or other special
+      characters).
+  + You may have to wait 1--2 minutes before the instances are fully
+    initialized.
+  + python3 start_nb_servers.py hydrogen
+    + This will SSH into each instance and execute the "run_jupyter.py" script
+  + python3 add_hostnames.py hydrogen
+    + This will assign unique hostnames like "hydrogen0", "hydrogen1", etc. to
+      the Jupyter instances. (These are stored under the "ws_hostname" tag.)
+  + python3 update_proxy.py hydrogen
+    + This will create a "hydrogen.conf" configuration file for NGINX, scp it
+      to the proxy server, and reload NGINX on the server.
+  + You should now be able to access each notebook at URLs like
+    hydrogen0.openmcworkshop.org and hydrogen1.openmcworkshop.org
+  + python3 terminate_instances.py hydrogen
