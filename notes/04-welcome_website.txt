@@ -1,3 +1,5 @@
+TODO: this is a stub that needs to be filled out
+
 The last piece of infrastructure to prepare is a welcome website. This website
 will use a simple web app to give each participant the URL to a unique instance
 running Jupyter Lab.
